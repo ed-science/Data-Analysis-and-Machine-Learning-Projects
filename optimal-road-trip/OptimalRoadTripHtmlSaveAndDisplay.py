@@ -188,7 +188,7 @@ def CreateOptimalRouteHtmlFile(optimal_route, distance, display=True):
     </html>
     """
 
-    localoutput_file = output_file.replace('.html', '_' + str(distance) + '.html')
+    localoutput_file = output_file.replace('.html', f'_{str(distance)}.html')
     with open(localoutput_file, 'w') as fs:
         fs.write(Page_1)
         fs.write("\t\t\toptimal_route = {0}".format(str(optimal_route)))
@@ -233,8 +233,8 @@ def mutate_agent(agent_genome, max_mutations=3):
     
     agent_genome = list(agent_genome)
     num_mutations = random.randint(1, max_mutations)
-    
-    for mutation in range(num_mutations):
+
+    for _ in range(num_mutations):
         swap_index1 = random.randint(0, len(agent_genome) - 1)
         swap_index2 = swap_index1
 
@@ -242,7 +242,7 @@ def mutate_agent(agent_genome, max_mutations=3):
             swap_index2 = random.randint(0, len(agent_genome) - 1)
 
         agent_genome[swap_index1], agent_genome[swap_index2] = agent_genome[swap_index2], agent_genome[swap_index1]
-            
+
     return tuple(agent_genome)
 
 def shuffle_mutation(agent_genome):
@@ -271,10 +271,7 @@ def generate_random_population(pop_size):
         Generates a list with `pop_size` number of random road trips.
     """
     
-    random_population = []
-    for agent in range(pop_size):
-        random_population.append(generate_random_agent())
-    return random_population
+    return [generate_random_agent() for _ in range(pop_size)]
     
 def run_genetic_algorithm(generations=5000, population_size=100):
     """
@@ -286,7 +283,7 @@ def run_genetic_algorithm(generations=5000, population_size=100):
     current_best_distance = -1
     population_subset_size = int(population_size / 10.)
     generations_10pct = int(generations / 10.)
-    
+
     # Create a random population of `population_size` number of solutions.
     population = generate_random_population(population_size)
 
@@ -319,19 +316,15 @@ def run_genetic_algorithm(generations=5000, population_size=100):
                 if population_fitness[agent_genome] < current_best_distance or current_best_distance < 0:
                     current_best_distance = population_fitness[agent_genome]
                     CreateOptimalRouteHtmlFile(agent_genome, current_best_distance, False)
-                    
+
 
             # Create 1 exact copy of each of the top road trips
             new_population.append(agent_genome)
 
             # Create 2 offspring with 1-3 point mutations
-            for offspring in range(2):
-                new_population.append(mutate_agent(agent_genome, 3))
-                
+            new_population.extend(mutate_agent(agent_genome, 3) for _ in range(2))
             # Create 7 offspring with a single shuffle mutation
-            for offspring in range(7):
-                new_population.append(shuffle_mutation(agent_genome))
-
+            new_population.extend(shuffle_mutation(agent_genome) for _ in range(7))
         # Replace the old population with the new population of offspring 
         for i in range(len(population))[::-1]:
             del population[i]
@@ -344,11 +337,11 @@ if __name__ == '__main__':
     # If this file exists, read the data stored in it - if not then collect data by asking google
     print("Begin finding shortest route")
     file_path = waypoints_file
+    waypoint_durations = {}
+    #file exists used saved results
+    waypoint_distances = {}
     if os.path.exists(file_path):
         print("Waypoints exist")
-        #file exists used saved results
-        waypoint_distances = {}
-        waypoint_durations = {}
         all_waypoints = set()
 
         waypoint_data = pd.read_csv(file_path, sep="\t")
@@ -361,10 +354,6 @@ if __name__ == '__main__':
     else:
         # File does not exist - compute results       
         print("Collecting Waypoints")
-        waypoint_distances = {}
-        waypoint_durations = {}
-
-
         gmaps = googlemaps.Client(GOOGLE_MAPS_API_KEY)
         for (waypoint1, waypoint2) in combinations(all_waypoints, 2):
             try:
@@ -383,18 +372,18 @@ if __name__ == '__main__':
 
                 waypoint_distances[frozenset([waypoint1, waypoint2])] = distance
                 waypoint_durations[frozenset([waypoint1, waypoint2])] = duration
-        
+
             except Exception as e:
-                print("Error with finding the route between %s and %s." % (waypoint1, waypoint2))
-        
+                print(f"Error with finding the route between {waypoint1} and {waypoint2}.")
+
         print("Saving Waypoints")
         with open(waypoints_file, "w") as out_file:
             out_file.write("\t".join(["waypoint1",
                                       "waypoint2",
                                       "distance_m",
                                       "duration_s"]))
-        
-            for (waypoint1, waypoint2) in waypoint_distances.keys():
+
+            for (waypoint1, waypoint2) in waypoint_distances:
                 out_file.write("\n" +
                                "\t".join([waypoint1,
                                           waypoint2,
